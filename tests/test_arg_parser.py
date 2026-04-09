@@ -22,16 +22,16 @@ class TestModeResolution(TestCase):
         self.assertFalse(args.premium)
         self.assertFalse(args.api)
 
-    def test_premium_flag_selects_premium(self):
+    def test_premium_flag_selects_premium_feed(self):
         with patch.object(auth, "load_api_key", return_value="os_test_key"):
             args = self._run(["--premium"])
-        self.assertEqual("premium", args.mode)
+        self.assertEqual("premium_feed", args.mode)
         self.assertEqual("os_test_key", args.resolved_api_key)
 
-    def test_api_flag_selects_api(self):
+    def test_api_flag_selects_premium_api(self):
         with patch.object(auth, "load_api_key", return_value="os_test_key"):
             args = self._run(["--api"])
-        self.assertEqual("api", args.mode)
+        self.assertEqual("premium_api", args.mode)
         self.assertEqual("os_test_key", args.resolved_api_key)
 
     def test_premium_and_api_are_mutually_exclusive(self):

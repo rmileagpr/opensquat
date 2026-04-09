@@ -127,12 +127,12 @@ def get_args():
     mode_group.add_argument(
         "--premium",
         action="store_true",
-        help="Use the paid NRD feed (requires openSquat API key)",
+        help="Premium Feed mode - use the paid NRD feed (requires openSquat API key)",
     )
     mode_group.add_argument(
         "--api",
         action="store_true",
-        help="Query the openSquat lookalike API per keyword (no local feed)",
+        help="Premium API mode - query the openSquat lookalike API per keyword (no local feed)",
     )
 
     parser.add_argument(
@@ -208,11 +208,15 @@ def get_args():
         print("\n[ERROR] The weekly/monthly feeds have been deprecated. Please use the daily feeds.\n")
         exit(1)
 
-    # Resolve mode (community is the default)
+    # Resolve mode (community is the default). The three internal values
+    # correspond to the user-facing labels:
+    #   community   -> "Community"
+    #   premium_feed -> "Premium Feed"   (--premium)
+    #   premium_api  -> "Premium API"    (--api)
     if args.premium:
-        args.mode = "premium"
+        args.mode = "premium_feed"
     elif args.api:
-        args.mode = "api"
+        args.mode = "premium_api"
     else:
         args.mode = "community"
 

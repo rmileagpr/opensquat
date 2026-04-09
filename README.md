@@ -58,7 +58,7 @@ This model enables transparency and community collaboration while supporting the
 
 - 📅 **Daily NRD feeds** — Automatic newly registered domain updates
 - 🔍 **Similarity detection** — Levenshtein distance algorithm
-- 🔓 **Three operating modes** — Free community feed, paid premium feed, or hosted lookalike API (see [Premium and API Modes](#-premium-and-api-modes))
+- 🔓 **Three operating modes** — **Community** (free feed), **Premium Feed** (paid feed, same local pipeline), or **Premium API** (hosted lookalike service). The two Premium modes share a single openSquat API key — see [Premium and API Modes](#-premium-and-api-modes).
 - 🛡️ **VirusTotal integration** — Check domain reputation
 - 🌐 **Quad9 DNS validation** — Identify malicious domains
 - 📜 **Certificate Transparency** — Monitor SSL/TLS certificates
@@ -150,17 +150,17 @@ opensquat -o results.csv -t csv
 
 ## 💎 Premium and API Modes
 
-openSquat supports three modes. The default (community) is unchanged - existing users need no flags.
+openSquat supports three modes. The default (Community) is unchanged — existing users need no flags. The two Premium modes share a single openSquat API key; pick **Premium Feed** if you want the same local detection pipeline with a larger feed, or **Premium API** if you want server-side detection with no local feed download.
 
 | Mode | Flag | What it does |
 |------|------|--------------|
 | **Community** (default) | _(none)_ | Downloads the free NRD feed (~100k domains/day) and runs local Levenshtein detection. |
-| **Premium** | `--premium` | Downloads the paid NRD feed (`nrd-lite`, much larger) using your openSquat API key, then runs local Levenshtein detection. |
-| **API** | `--api` | Skips local feed download. Queries the openSquat lookalike REST API per keyword and returns server-side matches. |
+| **Premium Feed** | `--premium` | Downloads the paid NRD feed (`nrd-lite`, much larger) using your openSquat API key, then runs the same local Levenshtein detection. |
+| **Premium API** | `--api` | Skips local feed download. Queries the openSquat lookalike REST API per keyword and returns server-side matches. |
 
 ### Get an API key
 
-Sign up at [opensquat.com](https://opensquat.com) to get a key. The same key works for both `--premium` and `--api`.
+Sign up at [opensquat.com](https://opensquat.com) to get a key. The same key works for both Premium Feed (`--premium`) and Premium API (`--api`).
 
 ### Provide the API key (priority order)
 
@@ -173,20 +173,20 @@ Sign up at [opensquat.com](https://opensquat.com) to get a key. The same key wor
 ### Examples
 
 ```bash
-# Premium feed - same local pipeline, larger feed
+# Premium Feed mode — same local pipeline, larger feed
 export OPENSQUAT_API_KEY=os_xxxxxxxxxxxx
 opensquat -k keywords.txt --premium
 
-# API mode - server-side detection per keyword
+# Premium API mode — server-side detection per keyword
 opensquat -k keywords.txt --api
 
-# API mode + DNS reputation check on each returned domain
+# Premium API + DNS reputation check on each returned domain
 opensquat -k keywords.txt --api --dns
 
-# API mode with JSON output grouped by keyword
+# Premium API with JSON output grouped by keyword
 opensquat -k keywords.txt --api -t json -o results.json
 
-# Tune the API search
+# Tune the Premium API search
 opensquat -k keywords.txt --api --api-fuzziness high --api-history-days 7 --api-max-results 200
 ```
 
@@ -196,13 +196,13 @@ When `--premium` or `--api` successfully loads a key, the CLI prints a masked co
 [*] API key loaded: os_gL...L5Mb
 ```
 
-In API mode, the run summary reports the active mode, the number of API calls made, and your remaining balance with usage delta (for example, `4972 (used 4 of 4976 this run)`). Per-keyword progress lines appear in the same order as your keywords file even though the calls run in parallel. Quota exhaustion (HTTP 429) returns partial results gracefully; auth errors (401) and plan errors (403) abort with a clear message.
+In Premium API mode, the run summary reports the active mode, the number of API calls made, and your remaining balance with usage delta (for example, `4972 (used 4 of 4976 this run)`). Per-keyword progress lines appear in the same order as your keywords file even though the calls run in parallel. Quota exhaustion (HTTP 429) returns partial results gracefully; auth errors (401) and plan errors (403) abort with a clear message.
 
-If you pass `--api-key` without also selecting `--premium` or `--api`, the CLI prints a one-line hint that the key will be ignored in community mode (no silent mode-switching).
+If you pass `--api-key` without also selecting `--premium` or `--api`, the CLI prints a one-line hint that the key will be ignored in Community mode (no silent mode-switching).
 
-`-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.
+In Premium API mode, `-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.
 
-`--api` is incompatible with `--doppelganger` and `-d/--domains`.
+Premium API (`--api`) is incompatible with `--doppelganger` and `-d/--domains`.
 
 ---
 
@@ -271,12 +271,12 @@ Run daily via crontab:
 | `--subdomains` | — | Fetch subdomains via VirusTotal |
 | `--portcheck` | — | Check for open ports 80/443 |
 | `--vt` | — | Validate against VirusTotal |
-| `--premium` | — | Use the paid NRD feed (requires openSquat API key) |
-| `--api` | — | Query the openSquat lookalike REST API per keyword (no local feed) |
+| `--premium` | — | **Premium Feed mode** — use the paid NRD feed (requires openSquat API key) |
+| `--api` | — | **Premium API mode** — query the openSquat lookalike REST API per keyword (no local feed) |
 | `--api-key` | — | openSquat API key (or set `$OPENSQUAT_API_KEY`, or use `api_key.txt`) |
-| `--api-fuzziness` | _(from `-c`)_ | API mode: `exact`, `low`, `high`, or `auto` |
-| `--api-history-days` | — | API mode: NRD history window in days (clipped to plan cap) |
-| `--api-max-results` | — | API mode: max results per keyword (clipped to plan cap) |
+| `--api-fuzziness` | _(from `-c`)_ | Premium API mode: `exact`, `low`, `high`, or `auto` |
+| `--api-history-days` | — | Premium API mode: NRD history window in days (clipped to plan cap) |
+| `--api-max-results` | — | Premium API mode: max results per keyword (clipped to plan cap) |
 
 ---
 

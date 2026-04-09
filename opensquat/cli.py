@@ -28,12 +28,12 @@ def signal_handler(sig, frame):
 
 def _print_mode_summary(mode, scanner):
     """Print the mode-specific lines of the run summary."""
-    if mode == "premium":
-        print("[*] Mode: Premium feed")
+    if mode == "premium_feed":
+        print("[*] Mode: Premium Feed")
         return
-    if mode != "api":
+    if mode != "premium_api":
         return
-    print("[*] Mode: API")
+    print("[*] Mode: Premium API")
     print("[*] API calls made:", scanner.api_calls_made)
     if scanner.api_balance is None:
         return
@@ -89,7 +89,7 @@ def main():
         )
 
     # Mode-specific incompatibilities (early-fail before any work)
-    if args.mode == "api" and args.doppelganger:
+    if args.mode == "premium_api" and args.doppelganger:
         print(
             Style.BRIGHT + Fore.RED +
             "[ERROR] --doppelganger is incompatible with --api.\n"
@@ -106,7 +106,7 @@ def main():
         )
         exit(-1)
 
-    if args.mode == "api" and args.domains:
+    if args.mode == "premium_api" and args.domains:
         print(
             Style.BRIGHT + Fore.RED +
             "[ERROR] -d/--domains is incompatible with --api. "
@@ -118,7 +118,7 @@ def main():
     start_time_squatting = time.time()
 
     api_options = None
-    if args.mode == "api":
+    if args.mode == "premium_api":
         api_options = ApiOptions(
             api_key=args.resolved_api_key,
             fuzziness=args.api_fuzziness,
@@ -136,7 +136,7 @@ def main():
         feed_url=args.url,
         mode=args.mode,
         api_options=api_options,
-        premium_api_key=args.resolved_api_key if args.mode == "premium" else None,
+        premium_api_key=args.resolved_api_key if args.mode == "premium_feed" else None,
     )
 
     if args.subdomains or args.vt or args.phishing or args.portcheck:

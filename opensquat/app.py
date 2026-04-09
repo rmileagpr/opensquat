@@ -124,11 +124,11 @@ class Domain:
 
     def print_info_api(self):
         """
-        Method to print configuration info for API mode (no domain feed).
+        Method to print configuration info for Premium API mode (no feed).
         """
         print("[*] keywords:", self.keywords_filename)
         print("[*] keywords total:", self.keywords_total)
-        print("[*] Mode: API")
+        print("[*] Mode: Premium API")
         print("[*] Fuzziness:", self.api_fuzziness)
 
     @staticmethod
@@ -365,8 +365,8 @@ class Domain:
             dns_validator=self.dns_validator
         )
 
-        if mode == "api":
-            # API mode skips feed download and local Levenshtein.
+        if mode == "premium_api":
+            # Premium API mode skips feed download and local Levenshtein.
             self.keywords_total = file_input.InputFile().main(keywords_file, None)
             self._read_keywords()
             self.api_fuzziness = (
@@ -377,8 +377,8 @@ class Domain:
             self.print_info_api()
             return self._run_api_worker(api_options)
 
-        # community / premium: download or load a local feed, then local detection.
-        if mode == "premium":
+        # community / premium_feed: download or load a local feed, then local detection.
+        if mode == "premium_feed":
             self.feed_manager = FeedManager(
                 feed_url=PREMIUM_FEED_URL,
                 api_key=premium_api_key,
