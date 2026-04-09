@@ -48,11 +48,20 @@ class APIPlanError(APIError):
 
 
 class APIQuotaExhausted(APIError):
-    """429 Too Many Requests — monthly quota exhausted."""
+    """429 Too Many Requests — monthly quota exhausted (permanent until reset)."""
 
     def __init__(self, message, balance=0):
         super().__init__(message)
         self.balance = balance
+
+
+class APIRateLimited(APIError):
+    """429 Too Many Requests with Retry-After — transient upstream rate limit,
+    distinct from permanent quota depletion. Carries the retry delay in seconds."""
+
+    def __init__(self, message, retry_after=10):
+        super().__init__(message)
+        self.retry_after = retry_after
 
 
 class APIBadRequest(APIError):
@@ -130,6 +139,20 @@ class APIClient:
         if status == 403:
             raise APIPlanError(detail or "Plan limit exceeded")
         if status == 429:
+            # Distinguish transient upstream rate limiting (Retry-After set)
+            # from permanent quota depletion (no Retry-After, JSON body with
+            # balance: 0). The upstream rate limiter always sets Retry-After;
+            # the openSquat API's own quota-zero response does not.
+            retry_after_header = response.headers.get("Retry-After")
+            if retry_after_header is not None:
+                try:
+                    retry_after = int(retry_after_header)
+                except (TypeError, ValueError):
+                    retry_after = 10  # sensible fallback
+                raise APIRateLimited(
+                    detail or "Rate limit hit",
+                    retry_after=retry_after,
+                )
             balance = self._extract_balance(response)
             raise APIQuotaExhausted(detail or "Quota exhausted", balance=balance)
 
@@ -171,10 +194,20 @@ class APIClient:
 
     @staticmethod
     def _extract_detail(response):
+        """
+        Extract a human-readable error detail from an HTTP response.
+
+        Preference order:
+            1. JSON body's "detail" field (for well-formed API errors)
+            2. Plain text body, stripped and truncated to 200 chars
+               (for upstream proxies/WAFs that return text/plain bodies)
+            3. None if neither source yields usable text
+        """
         try:
             body = response.json()
         except (ValueError, _json.JSONDecodeError):
-            return None
+            text = (response.text or "").strip()
+            return text[:200] if text else None
         if isinstance(body, dict):
             return body.get("detail")
         return None

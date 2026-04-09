@@ -160,6 +160,15 @@ def get_args():
         choices=["exact", "low", "high", "auto"],
         help="API mode: override the fuzziness derived from -c/--confidence",
     )
+    parser.add_argument(
+        "--api-rate-limit",
+        type=int,
+        default=None,
+        help="Premium API mode: max requests per second across all workers "
+             "(default: unlimited). Set at or below your backend's sustained "
+             "rate policy to avoid triggering rate limits on large scans "
+             "(e.g. 8 for a backend that allows 10 req/s).",
+    )
 
     parser.add_argument(
         "--ct",

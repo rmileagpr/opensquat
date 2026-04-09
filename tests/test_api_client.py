@@ -12,13 +12,25 @@ from opensquat.api_client import (
     APIError,
     APIPlanError,
     APIQuotaExhausted,
+    APIRateLimited,
     LookalikeResult,
 )
 
 
-def _mock_response(status_code, json_body=None, raise_on_json=False):
+def _mock_response(status_code, json_body=None, raise_on_json=False,
+                   headers=None, text=None):
+    """
+    Build a MagicMock response.
+
+    The explicit `headers` default to `{}` (not a MagicMock). Without this,
+    `response.headers.get("Retry-After")` on a default MagicMock would return
+    ANOTHER MagicMock (truthy), breaking the rate-limit vs quota branch.
+    """
     response = MagicMock()
     response.status_code = status_code
+    response.headers = headers if headers is not None else {}
+    if text is not None:
+        response.text = text
     if raise_on_json:
         response.json.side_effect = ValueError("not json")
     else:
@@ -215,3 +227,86 @@ class TestLookalikeErrors(TestCase):
     def test_empty_keyword_raises(self):
         with self.assertRaises(APIBadRequest):
             self.client.lookalike("")
+
+
+class TestRateLimitHandling(TestCase):
+    """429 responses split: with Retry-After => rate limit, without => quota."""
+
+    def setUp(self):
+        self.session = MagicMock(headers={})
+        self.client = APIClient(api_key="os_test_key", session=self.session)
+
+    def test_429_with_retry_after_raises_rate_limited(self):
+        self.session.post.return_value = _mock_response(
+            429,
+            raise_on_json=True,
+            headers={"Retry-After": "10"},
+            text="You are being rate-limited, please wait some more time.",
+        )
+        with self.assertRaises(APIRateLimited) as ctx:
+            self.client.lookalike("paypal")
+        self.assertEqual(10, ctx.exception.retry_after)
+        self.assertIn("rate-limited", str(ctx.exception).lower())
+
+    def test_429_without_retry_after_still_raises_quota(self):
+        # Regression guard: the existing test covers this path, but make the
+        # contract explicit now that the 429 branch discriminates on header.
+        self.session.post.return_value = _mock_response(
+            429, {"detail": "Quota exceeded", "balance": 0}
+        )
+        with self.assertRaises(APIQuotaExhausted) as ctx:
+            self.client.lookalike("paypal")
+        self.assertNotIsInstance(ctx.exception, APIRateLimited)
+
+    def test_429_with_non_integer_retry_after_defaults_to_10(self):
+        self.session.post.return_value = _mock_response(
+            429,
+            raise_on_json=True,
+            headers={"Retry-After": "garbage"},
+            text="Rate limited",
+        )
+        with self.assertRaises(APIRateLimited) as ctx:
+            self.client.lookalike("paypal")
+        self.assertEqual(10, ctx.exception.retry_after)
+
+
+class TestExtractDetailFallback(TestCase):
+    """_extract_detail now falls back to response.text when body is not JSON."""
+
+    def test_returns_plain_text_when_not_json(self):
+        response = _mock_response(
+            429, raise_on_json=True, text="Rate limited: slow down"
+        )
+        self.assertEqual(
+            "Rate limited: slow down",
+            APIClient._extract_detail(response),
+        )
+
+    def test_strips_whitespace_from_plain_text(self):
+        response = _mock_response(
+            500, raise_on_json=True, text="  oops  \n"
+        )
+        self.assertEqual("oops", APIClient._extract_detail(response))
+
+    def test_truncates_long_text_to_200_chars(self):
+        long_text = "x" * 500
+        response = _mock_response(500, raise_on_json=True, text=long_text)
+        result = APIClient._extract_detail(response)
+        self.assertIsNotNone(result)
+        self.assertLessEqual(len(result), 200)
+
+    def test_empty_text_returns_none(self):
+        response = _mock_response(429, raise_on_json=True, text="")
+        self.assertIsNone(APIClient._extract_detail(response))
+
+    def test_whitespace_only_text_returns_none(self):
+        response = _mock_response(429, raise_on_json=True, text="   \n\t  ")
+        self.assertIsNone(APIClient._extract_detail(response))
+
+    def test_json_body_still_preferred_over_text(self):
+        # If the JSON parse succeeds, use body.get("detail"); don't fall
+        # through to response.text even if it's also set.
+        response = _mock_response(
+            400, {"detail": "bad keyword"}, text="different text"
+        )
+        self.assertEqual("bad keyword", APIClient._extract_detail(response))

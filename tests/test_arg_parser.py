@@ -108,6 +108,28 @@ class TestFuzzinessChoices(TestCase):
                 self._run(["--api", "--api-fuzziness", "bogus"])
 
 
+class TestRateLimitFlag(TestCase):
+    """--api-rate-limit parses to an int and defaults to None (unlimited)."""
+
+    def _run(self, argv):
+        with patch.object(sys, "argv", ["opensquat"] + argv):
+            return arg_parser.get_args()
+
+    def test_api_rate_limit_flag_parses(self):
+        with patch.object(auth, "load_api_key", return_value="k"):
+            args = self._run(["--api", "--api-rate-limit", "5"])
+        self.assertEqual(5, args.api_rate_limit)
+
+    def test_api_rate_limit_defaults_to_none(self):
+        with patch.object(auth, "load_api_key", return_value="k"):
+            args = self._run(["--api"])
+        self.assertIsNone(args.api_rate_limit)
+
+    def test_api_rate_limit_not_required_in_community_mode(self):
+        args = self._run([])
+        self.assertIsNone(args.api_rate_limit)
+
+
 class TestDeprecatedPeriodFlag(TestCase):
     """-p/--period is deprecated and should exit with a clear message."""
 

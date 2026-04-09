@@ -35,6 +35,24 @@ v2.3.0 (2026-04-08)
 + Fixed homoglyphs dependency pin: >=2.1.0 did not exist on PyPI
   (max is 2.0.4). Lowered to >=2.0.0 on both requirements.txt and
   pyproject.toml so fresh installs resolve.
++ Premium API mode now distinguishes transient upstream rate limiting
+  (HTTP 429 with Retry-After header) from permanent quota exhaustion.
+  Rate limit hits print a yellow warning with the retry delay and
+  preserve the real API balance in the summary; quota exhaustion keeps
+  the existing red abort path that forces balance to 0.
++ New --api-rate-limit N flag for Premium API mode caps outbound
+  request rate across all workers via a shared fixed-interval limiter.
+  Default is unlimited (unchanged behavior for existing scripts). Set
+  to a value at or below your backend's sustained rate policy to avoid
+  triggering rate limits on large scans (e.g. 8 for a backend that
+  allows 10 req/s).
++ api_client now surfaces plain-text error response bodies in error
+  messages when the server returns a non-JSON 4xx/5xx, instead of
+  falling back to a generic label. The actual upstream message now
+  reaches the user.
++ Premium API summary now shows "calls made: N (of M)" when a run
+  ends early, plus a yellow "Rate limit hit" or red "Quota exhausted"
+  reason line so users can tell at a glance why the scan was cut short.
 
 v2.2.4 (2026-03-30)
 + Raised minimum Python version from 3.8 to 3.10 (Python 3.8 and 3.9 are EOL).

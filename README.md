@@ -198,6 +198,13 @@ When `--premium` or `--api` successfully loads a key, the CLI prints a masked co
 
 In Premium API mode, the run summary reports the active mode, the number of API calls made, and your remaining balance with usage delta (for example, `4972 (used 4 of 4976 this run)`). Per-keyword progress lines appear in the same order as your keywords file even though the calls run in parallel. Quota exhaustion (HTTP 429) returns partial results gracefully; auth errors (401) and plan errors (403) abort with a clear message.
 
+If the backend rate-limits your request (HTTP 429 with a `Retry-After` header), the tool distinguishes it from quota exhaustion: you'll see a yellow `[!] Rate limit hit (retry in Ns)` warning instead of the red `quota exhausted` message, partial results are still returned, and the summary preserves your real API balance so you can see exactly how many credits you actually used. To avoid triggering rate limits on large scans, pass `--api-rate-limit N` to cap outbound requests per second across all workers. A value of `8` is a safe starting point for most backends.
+
+```bash
+# Throttle to 8 requests/second across all workers
+opensquat -k keywords.txt --api --api-rate-limit 8
+```
+
 If you pass `--api-key` without also selecting `--premium` or `--api`, the CLI prints a one-line hint that the key will be ignored in Community mode (no silent mode-switching).
 
 In Premium API mode, `-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.
@@ -277,6 +284,7 @@ Run daily via crontab:
 | `--api-fuzziness` | _(from `-c`)_ | Premium API mode: `exact`, `low`, `high`, or `auto` |
 | `--api-history-days` | — | Premium API mode: NRD history window in days (clipped to plan cap) |
 | `--api-max-results` | — | Premium API mode: max results per keyword (clipped to plan cap) |
+| `--api-rate-limit` | _(unlimited)_ | Premium API mode: max outbound requests per second across all workers |
 
 ---
 

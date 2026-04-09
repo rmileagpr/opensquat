@@ -34,18 +34,45 @@ def _print_mode_summary(mode, scanner):
     if mode != "premium_api":
         return
     print("[*] Mode: Premium API")
-    print("[*] API calls made:", scanner.api_calls_made)
-    if scanner.api_balance is None:
-        return
-    initial = scanner.api_balance_initial
-    if initial is not None and initial > scanner.api_balance:
-        used = initial - scanner.api_balance
-        print(
-            "[*] API balance remaining:",
-            f"{scanner.api_balance} (used {used} of {initial} this run)"
-        )
+
+    # If the run was cut short (rate limit or quota exhaustion), show the
+    # shortfall ratio so the user can tell at a glance that not every
+    # requested keyword was processed.
+    total = scanner.keywords_total
+    made = scanner.api_calls_made
+    if total and made < total:
+        print(f"[*] API calls made: {made} (of {total})")
     else:
-        print("[*] API balance remaining:", scanner.api_balance)
+        print("[*] API calls made:", made)
+
+    if scanner.api_balance is not None:
+        initial = scanner.api_balance_initial
+        if initial is not None and initial > scanner.api_balance:
+            used = initial - scanner.api_balance
+            print(
+                "[*] API balance remaining:",
+                f"{scanner.api_balance} (used {used} of {initial} this run)"
+            )
+        else:
+            print("[*] API balance remaining:", scanner.api_balance)
+
+    # Reason line when the run ended early. rate_limited is transient and
+    # shown in yellow; quota exhaustion is shown in red and implied by the
+    # forced-zero balance above.
+    if scanner.rate_limited:
+        print(
+            Style.BRIGHT + Fore.YELLOW +
+            "[*] Rate limit hit - wait a few seconds before retrying "
+            "the remaining keywords" +
+            Style.RESET_ALL
+        )
+    elif total and made < total and scanner.api_balance == 0:
+        print(
+            Style.BRIGHT + Fore.RED +
+            "[*] Quota exhausted - upgrade your plan or wait for the "
+            "monthly reset" +
+            Style.RESET_ALL
+        )
 
 
 def main():
@@ -124,6 +151,7 @@ def main():
             fuzziness=args.api_fuzziness,
             history_days=args.api_history_days,
             max_results=args.api_max_results,
+            rate_limit=args.api_rate_limit,
         )
 
     domain_scanner = app.Domain()

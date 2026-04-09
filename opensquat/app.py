@@ -12,6 +12,8 @@ software licensed under GNU version 3
 import concurrent.futures
 import functools
 import io
+import threading
+import time
 from dataclasses import dataclass
 from typing import Optional
 
@@ -28,6 +30,7 @@ from opensquat.api_client import (
     APIError,
     APIPlanError,
     APIQuotaExhausted,
+    APIRateLimited,
 )
 
 
@@ -42,6 +45,39 @@ _CONFIDENCE_TO_FUZZINESS = {
 }
 
 
+class _RateLimiter:
+    """
+    Thread-safe fixed-interval rate limiter shared across worker threads.
+
+    When rate_per_sec is None or <= 0, wait() is a no-op (zero overhead).
+    Otherwise, wait() blocks each caller until its assigned time slot,
+    guaranteeing at most rate_per_sec requests per second across all
+    callers. Slots are serialized under a single lock so concurrent
+    workers cannot burst past the limit.
+    """
+
+    def __init__(self, rate_per_sec):
+        if rate_per_sec and rate_per_sec > 0:
+            self._min_interval = 1.0 / rate_per_sec
+        else:
+            self._min_interval = 0.0
+        self._lock = threading.Lock()
+        self._next_slot = 0.0
+
+    def wait(self):
+        if self._min_interval <= 0:
+            return
+        # Hold the lock while sleeping so slots are strictly serialized —
+        # releasing early would let multiple workers read the same next_slot
+        # value and pile up on identical timestamps, bursting past the limit.
+        with self._lock:
+            now = time.monotonic()
+            if now < self._next_slot:
+                time.sleep(self._next_slot - now)
+                now = self._next_slot
+            self._next_slot = now + self._min_interval
+
+
 @dataclass
 class ApiOptions:
     """Per-keyword API call options."""
@@ -49,6 +85,7 @@ class ApiOptions:
     fuzziness: Optional[str] = None
     history_days: Optional[int] = None
     max_results: Optional[int] = None
+    rate_limit: Optional[int] = None  # max requests/sec, None = unlimited
 
 
 class Domain:
@@ -80,6 +117,7 @@ class Domain:
         self.api_balance_initial = None   # max seen across calls
         self.api_calls_made = 0
         self.api_fuzziness = None         # the mode actually used in API calls
+        self.rate_limited = False         # True if the run hit an upstream 429
 
     def count_files(self):
         (self.keywords_total, self.domain_total) = file_input.InputFile().main(
@@ -183,7 +221,7 @@ class Domain:
         return self.list_domains
 
     @staticmethod
-    def _api_keyword_task(client, dns_validator, fuzziness, history_days, max_results,
+    def _api_keyword_task(client, dns_validator, rate_limiter, fuzziness, history_days, max_results,
                           keyword, idx, total):
         """Worker for one keyword in API mode. Runs in a thread."""
         result_buffer = io.StringIO()
@@ -193,6 +231,9 @@ class Domain:
             Style.RESET_ALL,
             file=result_buffer,
         )
+        # Respect the shared rate limiter before issuing the HTTP call.
+        # No-op when the user didn't set --api-rate-limit.
+        rate_limiter.wait()
         try:
             result = client.lookalike(
                 keyword,
@@ -200,7 +241,7 @@ class Domain:
                 history_days=history_days,
                 max_results=max_results,
             )
-        except (APIQuotaExhausted, APIAuthError, APIPlanError):
+        except (APIRateLimited, APIQuotaExhausted, APIAuthError, APIPlanError):
             # Re-raise so the parent can stop the run.
             raise
         except APIBadRequest as e:
@@ -231,8 +272,16 @@ class Domain:
     def _run_api_worker(self, api_options):
         """
         Run --api mode. One APIClient shared across a thread pool, one task
-        per keyword. Honors --dns by annotating each returned domain.
-        Stops on quota exhaustion (429), auth error (401), plan error (403).
+        per keyword. Honors --dns by annotating each returned domain and
+        --api-rate-limit by capping outbound request rate across all workers.
+
+        Stops on:
+          - quota exhaustion (429 without Retry-After) — red warning, partial
+            results, forces api_balance to 0
+          - rate limit (429 with Retry-After)          — yellow warning, partial
+            results, preserves the real api_balance
+          - auth error (401)                           — red error, exit(-1)
+          - plan error (403)                           — red error, exit(-1)
         """
         if api_options is None or not api_options.api_key:
             print(
@@ -244,6 +293,8 @@ class Domain:
 
         seen_balances = []
         quota_exhausted = False
+        rate_limited = False
+        rate_limiter = _RateLimiter(api_options.rate_limit)
 
         with APIClient(api_options.api_key) as client:
             keyword_count = len(self.list_file_keywords)
@@ -260,6 +311,7 @@ class Domain:
                         self._api_keyword_task,
                         client,
                         self.dns_validator,
+                        rate_limiter,
                         self.api_fuzziness,
                         api_options.history_days,
                         api_options.max_results,
@@ -275,12 +327,26 @@ class Domain:
                 # the API calls still run fully in parallel — .result() on
                 # each just blocks until that specific future is done.
                 for fut in fut_to_keyword:
-                    # Skip any already-cancelled futures (after quota exhaustion).
+                    # Skip any already-cancelled futures (after 429 shutdown).
                     if fut.cancelled():
                         continue
 
                     try:
                         buffer, keyword, result = fut.result()
+                    except APIRateLimited as e:
+                        if not rate_limited:
+                            print(
+                                Style.BRIGHT + Fore.YELLOW +
+                                f"\n[!] Rate limit hit (retry in {e.retry_after}s): {e}\n"
+                                "    Returning partial results for the keywords "
+                                "processed so far." +
+                                Style.RESET_ALL
+                            )
+                            rate_limited = True
+                            # Prevent new work from starting. In-flight futures
+                            # keep running so we can still drain their results.
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        continue
                     except APIQuotaExhausted as e:
                         if not quota_exhausted:
                             print(
@@ -290,8 +356,6 @@ class Domain:
                                 Style.RESET_ALL
                             )
                             quota_exhausted = True
-                            # Prevent new work from starting. In-flight futures
-                            # keep running so we can still drain their results.
                             executor.shutdown(wait=False, cancel_futures=True)
                         continue
                     except APIAuthError as e:
@@ -332,10 +396,15 @@ class Domain:
             self.api_balance_initial = max(seen_balances)
             self.api_balance = min(seen_balances)
 
-        # Quota exhaustion trumps the last-seen balance: if the server said
-        # we're out, surface 0 in the summary regardless of earlier readings.
+        # Quota exhaustion (permanent) forces balance display to 0. Rate
+        # limiting (transient) deliberately does NOT — the real balance is
+        # preserved so users can see what they actually have remaining.
         if quota_exhausted:
             self.api_balance = 0
+
+        # Surface the rate-limit flag so cli.py can show a distinct reason
+        # line in the run summary.
+        self.rate_limited = rate_limited
 
         return self.list_domains
 
