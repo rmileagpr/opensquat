@@ -13,10 +13,14 @@ venv/
 
 # API key files (never commit secrets — these are also covered by *.txt above,
 # but listed explicitly as a safety net in case the rule ever changes)
-api_key.txt
 vt_key.txt
 *_key.txt
 *_api_key.txt
+# Exception: the api_key.txt template that ships with the repo is tracked.
+# The template contains only comments; users fill it in locally and git
+# will still flag any uncommitted edits, so contributors should review
+# before committing.
+!api_key.txt
 *.dat
 *.log
 *.json
