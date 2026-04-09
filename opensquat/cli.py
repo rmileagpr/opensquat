@@ -17,12 +17,35 @@ from colorama import init, Fore, Style
 from opensquat import __VERSION__, vt
 from opensquat import arg_parser, output, app, phishing, check_update
 from opensquat import port_check
+from opensquat.app import ApiOptions
 
 
 def signal_handler(sig, frame):
     """Function to catch CTR+C and terminate."""
     print("\n[*] openSquat is terminating...\n")
     exit(0)
+
+
+def _print_mode_summary(mode, scanner):
+    """Print the mode-specific lines of the run summary."""
+    if mode == "premium":
+        print("[*] Mode: Premium feed")
+        return
+    if mode != "api":
+        return
+    print("[*] Mode: API")
+    print("[*] API calls made:", scanner.api_calls_made)
+    if scanner.api_balance is None:
+        return
+    initial = scanner.api_balance_initial
+    if initial is not None and initial > scanner.api_balance:
+        used = initial - scanner.api_balance
+        print(
+            "[*] API balance remaining:",
+            f"{scanner.api_balance} (used {used} of {initial} this run)"
+        )
+    else:
+        print("[*] API balance remaining:", scanner.api_balance)
 
 
 def main():
@@ -53,7 +76,55 @@ def main():
 
     args = arg_parser.get_args()
 
+    # Usability hint: if the user provided --api-key but didn't pick a mode
+    # that uses it, tell them it's being ignored. Don't auto-switch modes.
+    if args.mode == "community" and args.api_key:
+        print(
+            Style.BRIGHT + Fore.YELLOW +
+            "[!] --api-key was provided but no mode that uses it was selected.\n"
+            "    Running in community mode; the key will be ignored.\n"
+            "    Add --premium (to download the paid feed) or --api (to query\n"
+            "    the lookalike REST API) to use it." +
+            Style.RESET_ALL
+        )
+
+    # Mode-specific incompatibilities (early-fail before any work)
+    if args.mode == "api" and args.doppelganger:
+        print(
+            Style.BRIGHT + Fore.RED +
+            "[ERROR] --doppelganger is incompatible with --api.\n"
+            "        --doppelganger runs local substring matching plus per-domain "
+            "HTTP and CT\n"
+            "        checks on a candidate set produced from a downloaded feed. "
+            "The API\n"
+            "        replaces candidate-set generation and does not return "
+            "doppelganger\n"
+            "        candidates. Workaround: omit --api to run doppelganger "
+            "against the\n"
+            "        local feed." +
+            Style.RESET_ALL
+        )
+        exit(-1)
+
+    if args.mode == "api" and args.domains:
+        print(
+            Style.BRIGHT + Fore.RED +
+            "[ERROR] -d/--domains is incompatible with --api. "
+            "API mode does not read a local feed." +
+            Style.RESET_ALL
+        )
+        exit(-1)
+
     start_time_squatting = time.time()
+
+    api_options = None
+    if args.mode == "api":
+        api_options = ApiOptions(
+            api_key=args.resolved_api_key,
+            fuzziness=args.api_fuzziness,
+            history_days=args.api_history_days,
+            max_results=args.api_max_results,
+        )
 
     domain_scanner = app.Domain()
     file_content = domain_scanner.main(
@@ -63,6 +134,9 @@ def main():
         args.dns,
         doppelganger_only=args.doppelganger,
         feed_url=args.url,
+        mode=args.mode,
+        api_options=api_options,
+        premium_api_key=args.resolved_api_key if args.mode == "premium" else None,
     )
 
     if args.subdomains or args.vt or args.phishing or args.portcheck:
@@ -96,8 +170,9 @@ def main():
         for domain in file_content:
             total_votes = vt.VirusTotal().main(domain)
 
-            # total votes
-            harmless = total_votes[0]
+            # total_votes layout: (harmless, malicious). We only act on the
+            # malicious count; the harmless count is unused but kept in the
+            # tuple to preserve the vt.VirusTotal.main() return contract.
             malicious = total_votes[1]
 
             if malicious > 0:
@@ -166,6 +241,8 @@ def main():
 
     print("[*] Domains flagged:", len(file_content))
     print("[*] Domains result:", args.output)
+
+    _print_mode_summary(args.mode, domain_scanner)
 
     if (args.phishing != ""):
         print("[*] Phishing results:", args.phishing)

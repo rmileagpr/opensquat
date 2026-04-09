@@ -21,6 +21,7 @@
 - [Quick Start](#-quick-start)
 - [Requirements](#-requirements)
 - [Usage](#-usage)
+- [Premium and API Modes](#-premium-and-api-modes)
 - [Configuration](#%EF%B8%8F-configuration)
 - [Automation](#-automation)
 - [CLI Reference](#-cli-reference)
@@ -144,6 +145,56 @@ opensquat -o results.csv -t csv
 
 ---
 
+## 💎 Premium and API Modes
+
+openSquat supports three modes. The default (community) is unchanged - existing users need no flags.
+
+| Mode | Flag | What it does |
+|------|------|--------------|
+| **Community** (default) | _(none)_ | Downloads the free NRD feed (~100k domains/day) and runs local Levenshtein detection. |
+| **Premium** | `--premium` | Downloads the paid NRD feed (`nrd-lite`, much larger) using your openSquat API key, then runs local Levenshtein detection. |
+| **API** | `--api` | Skips local feed download. Queries the openSquat lookalike REST API per keyword and returns server-side matches. |
+
+### Get an API key
+
+Sign up at [opensquat.com](https://opensquat.com) to get a key. The same key works for both `--premium` and `--api`.
+
+### Provide the API key (priority order)
+
+1. `--api-key YOUR_KEY` on the command line
+2. `OPENSQUAT_API_KEY` environment variable
+3. `opensquat_key.txt` in the current directory (one key per file, `#` comments allowed)
+
+> The CLI flag is visible in `ps` output. Prefer the env var or key file in shared environments.
+
+### Examples
+
+```bash
+# Premium feed - same local pipeline, larger feed
+export OPENSQUAT_API_KEY=os_xxxxxxxxxxxx
+opensquat -k keywords.txt --premium
+
+# API mode - server-side detection per keyword
+opensquat -k keywords.txt --api
+
+# API mode + DNS reputation check on each returned domain
+opensquat -k keywords.txt --api --dns
+
+# API mode with JSON output grouped by keyword
+opensquat -k keywords.txt --api -t json -o results.json
+
+# Tune the API search
+opensquat -k keywords.txt --api --api-fuzziness high --api-history-days 7 --api-max-results 200
+```
+
+In API mode, the run summary reports the active mode, the number of API calls made, and your remaining balance. Quota exhaustion (HTTP 429) returns partial results gracefully; auth errors (401) and plan errors (403) abort with a clear message.
+
+`-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.
+
+`--api` is incompatible with `--doppelganger` and `-d/--domains`.
+
+---
+
 ## ⚙️ Configuration
 
 ### Keywords File (`keywords.txt`)
@@ -193,6 +244,12 @@ Run daily via crontab:
 | `--subdomains` | — | Fetch subdomains via VirusTotal |
 | `--portcheck` | — | Check for open ports 80/443 |
 | `--vt` | — | Validate against VirusTotal |
+| `--premium` | — | Use the paid NRD feed (requires openSquat API key) |
+| `--api` | — | Query the openSquat lookalike REST API per keyword (no local feed) |
+| `--api-key` | — | openSquat API key (or set `$OPENSQUAT_API_KEY`, or use `opensquat_key.txt`) |
+| `--api-fuzziness` | _(from `-c`)_ | API mode: `exact`, `low`, `high`, or `auto` |
+| `--api-history-days` | — | API mode: NRD history window in days (clipped to plan cap) |
+| `--api-max-results` | — | API mode: max results per keyword (clipped to plan cap) |
 
 ---
 

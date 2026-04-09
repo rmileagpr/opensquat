@@ -12,6 +12,10 @@ software licensed under GNU version 3
 """
 import argparse
 
+from colorama import Fore, Style
+
+from opensquat import auth
+
 
 def validate_type(file_type):
     """
@@ -117,6 +121,46 @@ def get_args():
         help=argparse.SUPPRESS,  # Hide from help since deprecated
     )
 
+    # Mode selection: --premium and --api are mutually exclusive.
+    # Default (neither flag) is community mode.
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--premium",
+        action="store_true",
+        help="Use the paid NRD feed (requires openSquat API key)",
+    )
+    mode_group.add_argument(
+        "--api",
+        action="store_true",
+        help="Query the openSquat lookalike API per keyword (no local feed)",
+    )
+
+    parser.add_argument(
+        "--api-key",
+        type=str,
+        default="",
+        help="openSquat API key (or set $OPENSQUAT_API_KEY, or place in opensquat_key.txt)",
+    )
+    parser.add_argument(
+        "--api-history-days",
+        type=int,
+        default=None,
+        help="API mode: NRD history window in days (clipped to plan cap)",
+    )
+    parser.add_argument(
+        "--api-max-results",
+        type=int,
+        default=None,
+        help="API mode: max results per keyword (clipped to plan cap)",
+    )
+    parser.add_argument(
+        "--api-fuzziness",
+        type=str,
+        default=None,
+        choices=["exact", "low", "high", "auto"],
+        help="API mode: override the fuzziness derived from -c/--confidence",
+    )
+
     parser.add_argument(
         "--ct",
         action="store_true",
@@ -163,5 +207,33 @@ def get_args():
     if args.period is not None:
         print("\n[ERROR] The weekly/monthly feeds have been deprecated. Please use the daily feeds.\n")
         exit(1)
+
+    # Resolve mode (community is the default)
+    if args.premium:
+        args.mode = "premium"
+    elif args.api:
+        args.mode = "api"
+    else:
+        args.mode = "community"
+
+    # Resolve API key when needed (premium and api modes)
+    args.resolved_api_key = None
+    if args.mode != "community":
+        try:
+            args.resolved_api_key = auth.load_api_key(args.api_key)
+        except auth.AuthError as e:
+            print(
+                Style.BRIGHT + Fore.RED +
+                f"[ERROR] {e}" +
+                Style.RESET_ALL
+            )
+            exit(-1)
+        # Confirm which key got picked up without leaking it. Using the
+        # masked form means support logs / screenshots are safe to share.
+        print(
+            Fore.GREEN +
+            f"[*] API key loaded: {auth.mask_key(args.resolved_api_key)}" +
+            Style.RESET_ALL
+        )
 
     return args

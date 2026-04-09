@@ -1,3 +1,36 @@
+v2.3.0 (2026-04-08)
++ Added Premium feed mode (--premium): downloads paid NRD feed from
+  api.opensquat.com/v1/feeds/nrd-lite using X-API-Key header auth.
++ Added API mode (--api): queries the openSquat lookalike REST API per
+  keyword instead of running local Levenshtein on a downloaded feed.
++ New flags: --premium, --api, --api-key, --api-fuzziness,
+  --api-history-days, --api-max-results.
++ API key resolution priority: --api-key > $OPENSQUAT_API_KEY > opensquat_key.txt
++ New module opensquat/auth.py for API key resolution.
++ New module opensquat/api_client.py with typed exceptions
+  (APIAuthError, APIPlanError, APIQuotaExhausted, APIBadRequest, APIError).
++ API mode is parallelized with ThreadPoolExecutor (one worker per keyword,
+  capped at 8) and reuses a single requests.Session for connection pooling.
++ API mode honors --dns by annotating each returned domain via DNSValidator.
++ Quota exhaustion (HTTP 429) returns partial results gracefully.
++ Summary output now reports the active mode, API call count, and balance.
++ Default community mode is unchanged - existing users need no flags.
++ API mode preserves keyword file order in streaming output (keywords
+  print in the same order as keywords.txt even though calls run in parallel).
++ CLI prints a masked confirmation line when an API key is loaded
+  (e.g. "[*] API key loaded: os_gL...L5Mb") so users can verify which key
+  was picked up without leaking the full value.
++ Usability hint: passing --api-key without --premium or --api prints a
+  warning explaining the key will be ignored in community mode.
++ API mode summary now shows balance used vs initial (e.g.
+  "4972 (used 4 of 4976 this run)") when both values are available.
++ Community feed downloads now set a 60s HTTP timeout (previously
+  unbounded - a hung connection would hang the whole CLI).
++ Added tests for auth, api_client, feed_manager, and arg_parser.
++ Fixed homoglyphs dependency pin: >=2.1.0 did not exist on PyPI
+  (max is 2.0.4). Lowered to >=2.0.0 on both requirements.txt and
+  pyproject.toml so fresh installs resolve.
+
 v2.2.4 (2026-03-30)
 + Raised minimum Python version from 3.8 to 3.10 (Python 3.8 and 3.9 are EOL).
 

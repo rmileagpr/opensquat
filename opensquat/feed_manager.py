@@ -12,11 +12,27 @@ from colorama import Fore, Style
 from opensquat import __VERSION__
 
 
+PREMIUM_FEED_URL = "https://api.opensquat.com/v1/feeds/nrd-lite"
+
+
 class FeedManager:
-    def __init__(self, feed_url="https://feeds.opensquat.com/opensquat-nrd-latest.txt"):
+    def __init__(
+        self,
+        feed_url="https://feeds.opensquat.com/opensquat-nrd-latest.txt",
+        api_key=None,
+        premium=False,
+    ):
         self.feed_url = feed_url
         self.local_filename = self._safe_filename(feed_url)
         self.user_agent = "openSquat-" + __VERSION__
+        self.api_key = api_key
+        self.premium = premium
+
+    def _build_headers(self):
+        headers = {'User-Agent': self.user_agent}
+        if self.premium and self.api_key:
+            headers['X-API-Key'] = self.api_key
+        return headers
 
     @staticmethod
     def _safe_filename(feed_url):
@@ -56,14 +72,19 @@ class FeedManager:
     def check_latest_feeds(self):
         """
         Checks if the local feed file is up to date by comparing MD5 checksums.
+        Premium feeds skip the freshness check entirely (no .md5 sibling exists
+        on the API endpoint, and every download already costs plan quota).
         """
+        if self.premium:
+            return False
+
         url_md5 = self.feed_url + ".md5"
         print("[*] Checking for the latest feeds...")
 
-        headers = {'User-Agent': self.user_agent}
+        headers = self._build_headers()
 
         try:
-            response = requests.get(url_md5, headers=headers)
+            response = requests.get(url_md5, headers=headers, timeout=30)
         except requests.exceptions.RequestException:
             return False
 
@@ -93,16 +114,30 @@ class FeedManager:
         """
         print("[*] Downloading fresh domain list:", self.feed_url)
 
-        headers = {'User-Agent': self.user_agent}
+        headers = self._build_headers()
         try:
-            response = requests.get(self.feed_url, headers=headers)
+            # Timeout on both paths: a hung TCP connection should not hang
+            # the whole CLI. Premium gets a longer budget because the feed
+            # is meaningfully larger than community.
+            if self.premium:
+                response = requests.get(self.feed_url, headers=headers, timeout=60)
+            else:
+                response = requests.get(self.feed_url, headers=headers, timeout=60)
 
             if response.status_code != 200:
-                print(
-                    Style.BRIGHT + Fore.RED +
-                    f"[ERROR] Failed to download feeds (Status: {response.status_code})" +
-                    Style.RESET_ALL
-                )
+                if self.premium and response.status_code in (401, 403):
+                    print(
+                        Style.BRIGHT + Fore.RED +
+                        f"[ERROR] Premium feed download failed (HTTP {response.status_code}). "
+                        "Check your API key and plan." +
+                        Style.RESET_ALL
+                    )
+                else:
+                    print(
+                        Style.BRIGHT + Fore.RED +
+                        f"[ERROR] Failed to download feeds (Status: {response.status_code})" +
+                        Style.RESET_ALL
+                    )
                 exit(-1)
 
             # Get content size (handling chunked encoding where header might be missing)
