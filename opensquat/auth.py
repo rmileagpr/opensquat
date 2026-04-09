@@ -6,7 +6,7 @@ openSquat API key resolution.
 Resolves the openSquat API key from one of three sources, in priority order:
     1. CLI value (--api-key flag)
     2. Environment variable (OPENSQUAT_API_KEY)
-    3. Key file in CWD (opensquat_key.txt)
+    3. Key file in CWD (api_key.txt)
 
 This module is intentionally a clean rewrite — it does not call into vt.py,
 which has known key-loading bugs (last-line overwrite, no .strip(), no
@@ -15,7 +15,7 @@ empty-file guard).
 import os
 
 
-DEFAULT_KEY_FILE = "opensquat_key.txt"
+DEFAULT_KEY_FILE = "api_key.txt"
 DEFAULT_ENV_VAR = "OPENSQUAT_API_KEY"
 
 
@@ -29,7 +29,7 @@ def load_api_key(cli_value=None, key_file=DEFAULT_KEY_FILE, env_var=DEFAULT_ENV_
 
     Args:
         cli_value: value from --api-key flag, or None/empty
-        key_file: path to the key file (default: opensquat_key.txt in CWD)
+        key_file: path to the key file (default: api_key.txt in CWD)
         env_var: environment variable name (default: OPENSQUAT_API_KEY)
 
     Returns:

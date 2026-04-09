@@ -139,7 +139,7 @@ def get_args():
         "--api-key",
         type=str,
         default="",
-        help="openSquat API key (or set $OPENSQUAT_API_KEY, or place in opensquat_key.txt)",
+        help="openSquat API key (or set $OPENSQUAT_API_KEY, or place in api_key.txt)",
     )
     parser.add_argument(
         "--api-history-days",

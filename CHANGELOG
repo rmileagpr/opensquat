@@ -5,7 +5,7 @@ v2.3.0 (2026-04-08)
   keyword instead of running local Levenshtein on a downloaded feed.
 + New flags: --premium, --api, --api-key, --api-fuzziness,
   --api-history-days, --api-max-results.
-+ API key resolution priority: --api-key > $OPENSQUAT_API_KEY > opensquat_key.txt
++ API key resolution priority: --api-key > $OPENSQUAT_API_KEY > api_key.txt
 + New module opensquat/auth.py for API key resolution.
 + New module opensquat/api_client.py with typed exceptions
   (APIAuthError, APIPlanError, APIQuotaExhausted, APIBadRequest, APIError).
