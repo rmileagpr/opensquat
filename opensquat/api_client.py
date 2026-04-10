@@ -25,10 +25,26 @@ DEFAULT_TIMEOUT = 30
 
 
 @dataclass(frozen=True)
+class LookalikeDomain:
+    """
+    One matched domain plus the per-domain metadata the server returned.
+
+    All fields except `domain` are optional. Community and Premium Feed modes
+    populate only `domain` (the NRD feed has no per-domain metadata). Premium
+    API mode populates everything the server returned.
+    """
+    domain: str                          # punycode form, always present
+    tld: Optional[str] = None            # e.g. "com"
+    date: Optional[str] = None           # NRD first-seen date, e.g. "29-03-2026"
+    idn: bool = False                    # True when the domain is an IDN homograph
+    unicode: Optional[str] = None        # unicode rendering when idn=True
+
+
+@dataclass(frozen=True)
 class LookalikeResult:
     """Parsed response from POST /v1/nrd/lookalike/{keyword}."""
     keyword: str
-    domains: List[str] = field(default_factory=list)
+    domains: List[LookalikeDomain] = field(default_factory=list)
     balance: Optional[int] = None
     count: int = 0
     total: int = 0
@@ -179,9 +195,18 @@ class APIClient:
         results = body.get("results") or []
         domains = []
         for r in results:
+            if not isinstance(r, dict):
+                continue
             domain = r.get("domain")
-            if domain:
-                domains.append(domain)
+            if not domain:
+                continue
+            domains.append(LookalikeDomain(
+                domain=domain,
+                tld=r.get("tld"),
+                date=r.get("date"),
+                idn=bool(r.get("idn", False)),
+                unicode=r.get("unicode_domain"),
+            ))
 
         return LookalikeResult(
             keyword=body.get("keyword", keyword),

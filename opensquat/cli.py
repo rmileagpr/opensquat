@@ -26,6 +26,85 @@ def signal_handler(sig, frame):
     exit(0)
 
 
+def _serialize_domain(d):
+    """
+    Serialize a LookalikeDomain into a JSON-friendly dict.
+
+    Optional fields (tld, date, unicode) are omitted when they're None so
+    the output stays compact. `idn` is always emitted, even when False,
+    because the boolean presence is informative: it tells consumers the
+    tool checked and the domain is not a homograph (vs. not having the
+    information at all, which is what community/feed modes look like).
+    """
+    out = {"domain": d.domain}
+    if d.tld is not None:
+        out["tld"] = d.tld
+    if d.date is not None:
+        out["date"] = d.date
+    out["idn"] = d.idn
+    if d.idn and d.unicode is not None:
+        out["unicode"] = d.unicode
+    return out
+
+
+def _build_json_content(scanner, filtered_set):
+    """
+    Build the JSON output structure: a list of per-keyword objects, each
+    with a "domains" array of {"domain": ..., ...} dicts.
+
+    In Premium API mode, scanner.keyword_domains_meta carries rich
+    LookalikeDomain objects and the output includes tld/date/idn/unicode
+    fields. In community/feed modes, only the bare domain string is
+    emitted as {"domain": ...}, keeping the top-level shape consistent
+    across all three modes.
+    """
+    json_content = []
+    meta = getattr(scanner, "keyword_domains_meta", {}) or {}
+    for kw, doms in scanner.keyword_domains.items():
+        if kw in meta:
+            rich = [d for d in meta[kw] if d.domain in filtered_set]
+            if rich:
+                json_content.append({
+                    "keyword": kw,
+                    "domains": [_serialize_domain(d) for d in rich],
+                })
+        else:
+            filtered_doms = [d for d in doms if d in filtered_set]
+            if filtered_doms:
+                json_content.append({
+                    "keyword": kw,
+                    "domains": [{"domain": d} for d in filtered_doms],
+                })
+    return json_content
+
+
+def _build_csv_rows(scanner, filtered_set):
+    """
+    Build the CSV output rows: a header row followed by one data row
+    per domain. Premium API mode populates the metadata columns from
+    LookalikeDomain objects; community/feed modes leave them empty.
+    """
+    rows = [["keyword", "domain", "tld", "first_seen", "is_idn", "unicode"]]
+    meta = getattr(scanner, "keyword_domains_meta", {}) or {}
+    for kw, doms in scanner.keyword_domains.items():
+        if kw in meta:
+            for d in meta[kw]:
+                if d.domain in filtered_set:
+                    rows.append([
+                        kw,
+                        d.domain,
+                        d.tld or "",
+                        d.date or "",
+                        "true" if d.idn else "false",
+                        d.unicode or "",
+                    ])
+        else:
+            for dom in doms:
+                if dom in filtered_set:
+                    rows.append([kw, dom, "", "", "", ""])
+    return rows
+
+
 def _print_mode_summary(mode, scanner):
     """Print the mode-specific lines of the run summary."""
     if mode == "premium_feed":
@@ -250,12 +329,12 @@ def main():
 
     if args.type == "json":
         filtered_set = set(file_content)
-        json_content = []
-        for kw, doms in domain_scanner.keyword_domains.items():
-            filtered_doms = [d for d in doms if d in filtered_set]
-            if filtered_doms:
-                json_content.append({"keyword": kw, "domains": filtered_doms})
+        json_content = _build_json_content(domain_scanner, filtered_set)
         output.SaveFile().main(args.output, args.type, json_content)
+    elif args.type == "csv":
+        filtered_set = set(file_content)
+        rows = _build_csv_rows(domain_scanner, filtered_set)
+        output.SaveFile().main(args.output, args.type, rows)
     else:
         output.SaveFile().main(args.output, args.type, file_content)
     end_time_squatting = round(time.time() - start_time_squatting, 2)

@@ -101,6 +101,12 @@ class Domain:
         self.keywords_total = 0
         self.list_domains = []
         self.keyword_domains = {}
+        # Parallel to keyword_domains, but carries the full per-domain
+        # metadata (LookalikeDomain objects) instead of bare strings.
+        # Populated only in Premium API mode where the server returns
+        # tld/date/idn/unicode. JSON and CSV output readers check this
+        # and fall back to keyword_domains when it's empty.
+        self.keyword_domains_meta = {}
         self.confidence_level = 2
         self.doppelganger_only = False
 
@@ -258,14 +264,21 @@ class Domain:
             return result_buffer, keyword, None
 
         for d in result.domains:
+            # d is a LookalikeDomain; stream the punycode form and,
+            # for IDN homographs, append the unicode rendering so the
+            # operator sees the actual characters being impersonated.
+            if d.idn and d.unicode:
+                found_line = f"[+] Found {d.domain}  ({d.unicode})"
+            else:
+                found_line = f"[+] Found {d.domain}"
             print(
                 Style.BRIGHT + Fore.RED +
-                f"[+] Found {d}" +
+                found_line +
                 Style.RESET_ALL,
                 file=result_buffer,
             )
             if dns_validator.use_dns:
-                dns_validator.check_domain(d, result_buffer)
+                dns_validator.check_domain(d.domain, result_buffer)
 
         return result_buffer, keyword, result
 
@@ -387,8 +400,14 @@ class Domain:
                         seen_balances.append(result.balance)
 
                     if result.domains:
-                        self.list_domains.extend(result.domains)
-                        self.keyword_domains[keyword] = list(result.domains)
+                        # Flat string view (list_domains + keyword_domains)
+                        # is what post-processing filters and TXT output
+                        # expect. Rich view (keyword_domains_meta) carries
+                        # the per-domain metadata for JSON and CSV output.
+                        domain_strings = [d.domain for d in result.domains]
+                        self.list_domains.extend(domain_strings)
+                        self.keyword_domains[keyword] = domain_strings
+                        self.keyword_domains_meta[keyword] = list(result.domains)
             finally:
                 executor.shutdown(wait=True)
 

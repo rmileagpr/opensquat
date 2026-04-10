@@ -50,20 +50,25 @@ class SaveFile:
 
     def as_csv(self):
         """
-        save to csv.
+        Save to CSV.
 
-        Args:
-            none
+        self.content must be a list of rows, where each row is a list
+        of column values. The first row is treated as the header.
 
-        Return
-            none
+        Written with a UTF-8 BOM so Excel on Windows correctly detects
+        the encoding when cells contain unicode characters (e.g. the
+        homograph renderings in the `unicode` column from Premium API
+        mode). Linux/macOS tools and Python's csv.reader ignore the BOM
+        on read.
+
+        newline='' is the stdlib-recommended way to open a file for
+        csv.writer; without it, csv doubles line endings on Windows.
         """
-        with open(self.filename, "w", encoding='utf-8') as f_csv:
-            file_csv = csv.writer(
+        with open(self.filename, "w", encoding='utf-8-sig', newline='') as f_csv:
+            writer = csv.writer(
                 f_csv, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL
             )
-            file_csv.writerow(self.content)
-        f_csv.close()
+            writer.writerows(self.content)
 
     def as_text(self):
         """

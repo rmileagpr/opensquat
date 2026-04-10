@@ -13,6 +13,7 @@ from opensquat.api_client import (
     APIPlanError,
     APIQuotaExhausted,
     APIRateLimited,
+    LookalikeDomain,
     LookalikeResult,
 )
 
@@ -103,6 +104,8 @@ class TestLookalikeHappyPath(TestCase):
 
         self.assertIsInstance(result, LookalikeResult)
         self.assertEqual("paypal", result.keyword)
+        # result.domains is now list[LookalikeDomain]; compare the
+        # punycode strings via .domain for the string-ordering check.
         self.assertEqual(
             [
                 "paypal-verify.com",
@@ -110,7 +113,7 @@ class TestLookalikeHappyPath(TestCase):
                 "xn--pypal-4ve.com",
                 "my-paypal-support.org",
             ],
-            result.domains,
+            [d.domain for d in result.domains],
         )
         self.assertEqual(199, result.balance)
         self.assertEqual(4, result.count)
@@ -120,8 +123,54 @@ class TestLookalikeHappyPath(TestCase):
     def test_idn_domain_returned_as_punycode(self):
         self.session.post.return_value = _mock_response(200, SAMPLE_OK_BODY)
         result = self.client.lookalike("paypal")
-        self.assertIn("xn--pypal-4ve.com", result.domains)
-        self.assertNotIn("p\u0430ypal.com", result.domains)
+        domain_strings = [d.domain for d in result.domains]
+        self.assertIn("xn--pypal-4ve.com", domain_strings)
+        self.assertNotIn("p\u0430ypal.com", domain_strings)
+
+    def test_preserves_per_domain_metadata(self):
+        """Premium API mode must preserve tld, date, idn flag, and unicode
+        rendering from the response body - that's the whole point of the
+        enriched schema."""
+        self.session.post.return_value = _mock_response(200, SAMPLE_OK_BODY)
+        result = self.client.lookalike("paypal")
+
+        # Every entry should have tld and date populated from the fixture.
+        for d in result.domains:
+            self.assertIsNotNone(d.tld)
+            self.assertIsNotNone(d.date)
+
+        # The IDN entry should have idn=True and its unicode rendering.
+        idn_entries = [d for d in result.domains if d.idn]
+        self.assertEqual(1, len(idn_entries))
+        idn = idn_entries[0]
+        self.assertEqual("xn--pypal-4ve.com", idn.domain)
+        self.assertEqual("com", idn.tld)
+        self.assertEqual("p\u0430ypal.com", idn.unicode)
+
+        # Non-IDN entries should have idn=False and unicode=None.
+        plain = [d for d in result.domains if not d.idn]
+        self.assertEqual(3, len(plain))
+        for d in plain:
+            self.assertFalse(d.idn)
+            self.assertIsNone(d.unicode)
+
+    def test_missing_optional_fields_default_cleanly(self):
+        """A server response that omits optional fields (tld, date, idn)
+        must not crash - optional fields default to None / False."""
+        body = {
+            "keyword": "test",
+            "results": [{"domain": "minimal.example"}],
+        }
+        self.session.post.return_value = _mock_response(200, body)
+        result = self.client.lookalike("test")
+        self.assertEqual(1, len(result.domains))
+        d = result.domains[0]
+        self.assertEqual("minimal.example", d.domain)
+        self.assertIsNone(d.tld)
+        self.assertIsNone(d.date)
+        self.assertFalse(d.idn)
+        self.assertIsNone(d.unicode)
+        self.assertIsInstance(d, LookalikeDomain)
 
     def test_url_encodes_keyword(self):
         self.session.post.return_value = _mock_response(200, SAMPLE_OK_BODY)

@@ -205,6 +205,52 @@ If the backend rate-limits your request (HTTP 429 with a `Retry-After` header), 
 opensquat -k keywords.txt --api --api-rate-limit 8
 ```
 
+### Output format recommendation
+
+**JSON is the recommended output format for Premium API mode** because the API returns per-domain metadata that the other formats cannot carry as cleanly: the registered TLD, the NRD first-seen date, an IDN homograph flag, and the unicode rendering of the homograph when the domain is one.
+
+```bash
+opensquat -k keywords.txt --api -t json -o results.json
+```
+
+Example of the richer output in Premium API mode (trimmed):
+
+```json
+[
+  {
+    "keyword": "microsoft",
+    "domains": [
+      {"domain": "securite-microsoft.fr", "tld": "fr", "date": "09-04-2026", "idn": false},
+      {"domain": "xn--mirosoft-hw7c.com", "tld": "com", "date": "09-04-2026", "idn": true, "unicode": "miᴄrosoft.com"}
+    ]
+  }
+]
+```
+
+The `idn` flag plus the `unicode` rendering let you see at a glance that `xn--mirosoft-hw7c.com` is actually `ᴄ` (Latin Letter Small Capital C) impersonating the `c` in "microsoft" — information that a plain punycode string completely hides.
+
+CSV output is also supported and produces one row per domain with the same metadata columns, which suits analysts working in Excel or pandas:
+
+```bash
+opensquat -k keywords.txt --api -t csv -o results.csv
+```
+
+The CSV is written with a UTF-8 BOM so Excel on Windows correctly renders the unicode homograph column.
+
+Community and Premium Feed modes emit the same JSON top-level shape for cross-mode consistency, but with only the `domain` field populated per entry — the NRD feed does not carry the per-domain metadata that only the hosted API has:
+
+```json
+[
+  {
+    "keyword": "microsoft",
+    "domains": [
+      {"domain": "mirosoft.com"},
+      {"domain": "mcrosoft.net"}
+    ]
+  }
+]
+```
+
 If you pass `--api-key` without also selecting `--premium` or `--api`, the CLI prints a one-line hint that the key will be ignored in Community mode (no silent mode-switching).
 
 In Premium API mode, `-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.

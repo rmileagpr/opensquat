@@ -53,6 +53,34 @@ v2.3.0 (2026-04-08)
 + Premium API summary now shows "calls made: N (of M)" when a run
   ends early, plus a yellow "Rate limit hit" or red "Quota exhausted"
   reason line so users can tell at a glance why the scan was cut short.
++ Premium API mode JSON output now preserves the full per-domain
+  metadata the server returns: tld, NRD first-seen date, an IDN
+  homograph flag, and the unicode rendering for homographs. Previously
+  the tool parsed these fields from the response body and then
+  discarded them, hiding the unicode characters behind bare punycode
+  strings like "xn--mirosoft-hw7c.com".
++ CSV output is now a proper one-row-per-domain table with columns
+  keyword,domain,tld,first_seen,is_idn,unicode. Fixes the pre-existing
+  writerow-vs-writerows bug that was writing all domains as a single
+  row. Written with a UTF-8 BOM so Excel on Windows correctly renders
+  the unicode homograph column.
++ BREAKING (JSON consumers of v2.2.3 / v2.2.4): each entry in a
+  keyword's "domains" array is now an object {"domain": "..."} instead
+  of a bare string. Migration is one line of user code:
+    OLD:  for d in kw["domains"]: print(d)
+    NEW:  for d in kw["domains"]: print(d["domain"])
+  The top-level [{"keyword": ..., "domains": [...]}] shape is unchanged.
++ Community and Premium Feed JSON output uses the same per-domain-
+  object shape for cross-mode consistency; the extra metadata fields
+  are populated only in Premium API mode where the upstream source
+  provides them.
++ --dns annotation is unchanged by the enrichment (still receives the
+  punycode domain string as before); post-processing filters (--vt,
+  --subdomains, --portcheck, --phishing) continue to operate on a flat
+  list[str] contract and are not affected by the rich JSON/CSV output.
++ New LookalikeDomain dataclass in opensquat.api_client exposes the
+  parsed per-domain fields for any downstream consumer using the
+  module programmatically.
 
 v2.2.4 (2026-03-30)
 + Raised minimum Python version from 3.8 to 3.10 (Python 3.8 and 3.9 are EOL).
