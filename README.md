@@ -298,13 +298,11 @@ myproduct
 
 ### VirusTotal API Key (`vt_key.txt`)
 
-To use `--vt`, add your API key:
+To use `--vt` or `--subdomains`, add your API key:
 ```text
 # Get your free API key at https://www.virustotal.com
 your_api_key_here
 ```
-
-> **Note:** `--subdomains` is currently broken (tracked in [#111](https://github.com/atenreiro/opensquat/issues/111)).
 
 ### openSquat API Key (`api_key.txt`)
 
