@@ -127,10 +127,8 @@ class FeedManager:
             # Timeout on both paths: a hung TCP connection should not hang
             # the whole CLI. Premium gets a longer budget because the feed
             # is meaningfully larger than community.
-            if self.premium:
-                response = requests.get(self.feed_url, headers=headers, timeout=60)
-            else:
-                response = requests.get(self.feed_url, headers=headers, timeout=60)
+            timeout = 120 if self.premium else 60
+            response = requests.get(self.feed_url, headers=headers, timeout=timeout)
 
             if response.status_code != 200:
                 if self.premium and response.status_code in (401, 403):

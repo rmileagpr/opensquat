@@ -41,16 +41,15 @@ class VirusTotal:
             )
             exit(-1)
 
+        # Read the first non-blank, non-comment line as the API key.
+        # The old version used line[0] indexing (crash on empty lines)
+        # and let later lines silently overwrite earlier ones.
         with open(self.api_key_file, mode='r', encoding='utf-8') as file_vt:
             for line in file_vt:
-                if (
-                    (line[0] != "#") and
-                    (line[0] != " ") and
-                    (line[0] != "") and
-                    (line[0] != "\n")
-                ):
-                    line = line.replace('\n', '')
+                line = line.strip()
+                if line and not line.startswith("#"):
                     self.api_key = line
+                    break
 
         return True
 

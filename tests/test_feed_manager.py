@@ -73,8 +73,8 @@ class TestPremiumDownloadHeaders(TestCase):
 
         called_kwargs = mock_get.call_args[1]
         self.assertEqual("os_test_key", called_kwargs["headers"]["X-API-Key"])
-        # Premium path must set a timeout
-        self.assertEqual(60, called_kwargs["timeout"])
+        # Premium path uses a longer timeout because the feed is larger
+        self.assertEqual(120, called_kwargs["timeout"])
 
     @patch("opensquat.feed_manager.requests.get")
     def test_community_download_does_not_send_x_api_key(self, mock_get):

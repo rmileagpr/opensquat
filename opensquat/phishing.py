@@ -56,48 +56,47 @@ class Phishing:
     def check_phishing(self):
         # keyword iteration
         i = 0
-        
+
         # Open phishing DB
         with open(self.keywords_filename, mode='r', encoding='utf-8') as f_key:
-            for keyword in f_key:
-                keyword = keyword.replace("\n", "")
-                keyword = keyword.lower()
+            for raw_keyword in f_key:
+                keyword = raw_keyword.strip().lower()
 
-                if not keyword:
+                # Skip blank, whitespace-only, and comment lines. Replaces
+                # the old line[0] indexing pattern that crashed on empty
+                # input and also miscounted whitespace-only lines.
+                if not keyword or keyword.startswith("#"):
                     continue
 
-                if (
-                    (keyword[0] != "#") and
-                    (keyword[0] != " ") and
-                    (keyword[0] != "") and
-                    (keyword[0] != "\n")
-                ):
-                    i += 1
-                    print(
-                        Fore.WHITE + "\n[*] Verifying keyword:",
-                        keyword,
-                        "[",
-                        i,
-                        "/",
-                        self.keywords_total,
-                        "]" + Style.RESET_ALL,
-                    )
-                    
-                    with open(self.phishing_filename, mode='r', encoding='utf-8') as f_phishing:
-                        for site in f_phishing:
-                            phishing_site = site.lower()
-                            phishing_site = site.replace("\n", "")
+                i += 1
+                print(
+                    Fore.WHITE + "\n[*] Verifying keyword:",
+                    keyword,
+                    "[",
+                    i,
+                    "/",
+                    self.keywords_total,
+                    "]" + Style.RESET_ALL,
+                )
 
-                            if self.URL_contains(keyword, phishing_site):
-                                print(
-                                    Style.BRIGHT + Fore.YELLOW +
-                                    "  \\_ Similarity detected between",
-                                    keyword,
-                                    "and",
-                                    phishing_site,
-                                    "" + Style.RESET_ALL
-                                    )
-                                self.list_domains.append(phishing_site)
+                with open(self.phishing_filename, mode='r', encoding='utf-8') as f_phishing:
+                    for site in f_phishing:
+                        # Lowercase AND strip newline in one pass. The old
+                        # version assigned site.lower() then overwrote it
+                        # with site.replace("\n", ""), producing a case-
+                        # sensitive comparison that missed mixed-case hits.
+                        phishing_site = site.replace("\n", "").lower()
+
+                        if self.URL_contains(keyword, phishing_site):
+                            print(
+                                Style.BRIGHT + Fore.YELLOW +
+                                "  \\_ Similarity detected between",
+                                keyword,
+                                "and",
+                                phishing_site,
+                                "" + Style.RESET_ALL
+                                )
+                            self.list_domains.append(phishing_site)
 
         return self.list_domains
 
