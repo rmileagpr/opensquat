@@ -16,6 +16,7 @@
 ## 📑 Table of Contents
 
 - [What is openSquat?](#-what-is-opensquat)
+- [Featured In](#-featured-in)
 - [Open-Core Model](#-open-core-model)
 - [Key Features](#-key-features)
 - [Quick Start](#-quick-start)
@@ -42,6 +43,29 @@ openSquat is an **Open Source Intelligence (OSINT)** security tool that identifi
 | 🌐 **IDN Homograph** | Look-alike characters from other alphabets |
 | 👥 **Doppelgänger** | Domains containing your brand name |
 | 🔀 **Bitsquatting** | Single-bit errors in domain names |
+
+---
+
+## 🌟 Featured In
+
+> **"A powerful swiss army knife for brand protection"**
+> — [WhoisXML API Blog](https://www.whoisxmlapi.com/blog/orchestrating-open-source-software-and-whois-newly-registered-domain-data-feeds-to-fight-the-typosquatting-plague), August 2022
+
+> **"A tool with insane power to fight typosquatting and all related types of cyber mischief."**
+> — [WhoisXML API Blog](https://www.whoisxmlapi.com/blog/orchestrating-open-source-software-and-whois-newly-registered-domain-data-feeds-to-fight-the-typosquatting-plague), August 2022
+
+> **"A handy tool for collecting information on newly registered domains."** — ranked Top 5 phishing detection tool
+> — [SOCRadar Blog](https://socradar.io/blog/top-5-tools-for-phishing-domain-detection/), July 2022
+
+> **"openSquat provides essential protection against domain squatting and phishing attacks through automated monitoring and detection."**
+> — [Prince Yadav, TutorialsPoint](https://www.tutorialspoint.com/article/opensquat-ndash-domain-squatting-and-phishing-watchdog), March 2026
+
+### Academic Citation
+
+> **"OpenSquat identified 103 squatting domains, 960 active phishing websites, and 53 domains with suspicious certificates."**
+> — Sharma et al., [Journal of Information Security and Cybercrimes Research (JISCR)](https://journals.nauss.edu.sa/index.php/JISCR/article/download/2805/1349), Vol. 7, Issue 1, June 2024
+
+---
 
 ## 🔓 Open-Core Model
 
