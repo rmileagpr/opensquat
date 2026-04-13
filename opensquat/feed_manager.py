@@ -104,7 +104,15 @@ class FeedManager:
                     return True
                 else:
                     return False
-            except Exception:
+            except (OSError, IOError) as e:
+                # Surface the failure so users don't silently re-download the
+                # feed on every run because of a disk/permission problem.
+                print(
+                    Style.BRIGHT + Fore.YELLOW +
+                    f"[!] Could not read local feed '{self.local_filename}' "
+                    f"for checksum comparison: {e}. Will re-download." +
+                    Style.RESET_ALL
+                )
                 return False
         return False
 
