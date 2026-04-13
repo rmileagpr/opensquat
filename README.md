@@ -105,8 +105,10 @@ opensquat -k keywords.txt
 git clone https://github.com/atenreiro/opensquat
 cd opensquat
 pip install -r requirements.txt
-python opensquat.py -k keywords.txt
+python3 opensquat.py -k keywords.txt
 ```
+
+> **Repo users:** in all the examples below, replace `opensquat` with `python3 opensquat.py` to run from a cloned checkout.
 
 ---
 
@@ -168,7 +170,7 @@ opensquat -o results.csv -t csv
 | 3 | `-c 3` | Low |
 | 4 | `-c 4` | Very low (more results, more false positives) |
 
-> **Note:** On the API side (`--api`), the five confidence levels map to four fuzziness values — `-c 3` and `-c 4` both map to `high`. See [Premium and API Modes](#-premium-and-api-modes) for the full mapping and how to override with `--api-fuzziness`.
+> **Note:** On the API side (`--api`), the five confidence levels map to four fuzziness values (`exact`, `low`, `auto`, `high`) — `-c 3` and `-c 4` both map to `high`. See [Premium and API Modes](#-premium-and-api-modes) for the full mapping and how to override with `--api-fuzziness`.
 
 ---
 
@@ -277,7 +279,7 @@ Community and Premium Feed modes emit the same JSON top-level shape for cross-mo
 
 If you pass `--api-key` without also selecting `--premium` or `--api`, the CLI prints a one-line hint that the key will be ignored in Community mode (no silent mode-switching).
 
-In Premium API mode, `-c/--confidence` is auto-mapped to API fuzziness (0→exact, 1→low, 2→auto, 3→high, 4→high). Note that the API currently exposes four fuzziness levels, so `-c 3` and `-c 4` both map to `high` — if you need finer control than that, use `--api-fuzziness` to override.
+In Premium API mode, `-c/--confidence` is auto-mapped to API fuzziness (`0→exact`, `1→low`, `2→auto`, `3→high`, `4→high`). Use `--api-fuzziness` to override.
 
 Premium API (`--api`) is incompatible with `--doppelganger` and `-d/--domains`.
 
@@ -296,11 +298,13 @@ myproduct
 
 ### VirusTotal API Key (`vt_key.txt`)
 
-To use `--vt` or `--subdomains`, add your API key:
+To use `--vt`, add your API key:
 ```text
 # Get your free API key at https://www.virustotal.com
 your_api_key_here
 ```
+
+> **Note:** `--subdomains` is currently broken (tracked in [#111](https://github.com/atenreiro/opensquat/issues/111)).
 
 ### openSquat API Key (`api_key.txt`)
 
