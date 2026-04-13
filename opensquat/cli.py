@@ -256,7 +256,7 @@ def main():
         time.sleep(1)
         for domain in file_content:
             print("[*]", domain)
-            subdomains = vt.VirusTotal().main(domain, "subdomains")
+            subdomains = vt.VirusTotal().main(domain, mode="subdomains")
 
             if subdomains:
                 for subdomain in subdomains:
