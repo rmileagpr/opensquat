@@ -108,15 +108,26 @@ class Phishing:
                 self.phishing_db
                 )
             session = requests.session()
-            r = session.get(self.phishing_db, stream=True)
+            # Add timeout so a hung phishing DB server cannot freeze the CLI.
+            r = session.get(self.phishing_db, timeout=60)
 
-            # Get total file size in bytes from the request header
+            data = r.content
+            r.close()
+            session.close()
+
+            # Get reported size from header, but fall back to the actual
+            # body length when the header is missing (chunked encoding).
+            # Without this fallback, a chunked response with no
+            # Content-Length was incorrectly treated as "file not found"
+            # even when the body had valid data — same bug that was
+            # already fixed in feed_manager.py.
             total_size = int(r.headers.get("content-length", 0))
+            if total_size == 0:
+                total_size = len(data)
+
             total_size_mb = round(float(total_size / 1024 / 1024), 2)
 
-            # Validate if the URL file is not found
-            if total_size_mb == 0:
-
+            if total_size == 0:
                 print(
                     "[ERROR] File not found or empty! Contact the authors " +
                     "or try again later. Exiting...\n",
@@ -125,15 +136,10 @@ class Phishing:
 
             print("[*] Download volume:", total_size_mb, "MB")
 
-            data = r.content
-            r.close()
-            session.close()
-
             with open(self.phishing_filename, "wb") as f:
                 f.write(data)
-            f.close()
 
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.RequestException:
             print("")
             exit(-1)
 

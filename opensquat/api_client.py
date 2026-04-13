@@ -137,7 +137,14 @@ class APIClient:
             params["max_results"] = max_results
 
         try:
-            response = self._session.post(url, params=params, timeout=self.timeout)
+            # allow_redirects=False prevents the session's X-API-Key header
+            # from being forwarded to a different host on a 30x response.
+            # requests strips Authorization on cross-host redirects but
+            # NOT custom headers, so a misconfigured proxy redirecting
+            # api.opensquat.com elsewhere would otherwise leak the key.
+            response = self._session.post(
+                url, params=params, timeout=self.timeout, allow_redirects=False
+            )
         except requests.exceptions.RequestException as e:
             raise APIError(f"Network error contacting {url}: {e}")
 

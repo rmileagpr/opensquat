@@ -35,7 +35,7 @@ class CheckUpdate:
         headers = {'User-Agent': ver}
 
         try:
-            response = requests.get(self.URL, headers=headers)
+            response = requests.get(self.URL, headers=headers, timeout=10)
         except requests.exceptions.RequestException:
             return False
 
@@ -51,7 +51,17 @@ class CheckUpdate:
         def parse_version(v):
             return tuple(int(x) for x in v.strip().split("."))
 
-        if parse_version(latest_ver) > parse_version(current_ver):
+        # Tolerate non-semver server responses (HTML error pages, blank
+        # bodies, "2.3.0-rc1", etc.) so an unexpected upstream payload
+        # doesn't crash the CLI at the very end of an otherwise
+        # successful run.
+        try:
+            latest_parsed = parse_version(latest_ver)
+            current_parsed = parse_version(current_ver)
+        except (ValueError, AttributeError):
+            return False
+
+        if latest_parsed > current_parsed:
             print(
                 Style.BRIGHT+Fore.MAGENTA +
                 "[INFO] New version avaiable!" +
