@@ -81,6 +81,45 @@ v2.3.0 (2026-04-08)
 + New LookalikeDomain dataclass in opensquat.api_client exposes the
   parsed per-domain fields for any downstream consumer using the
   module programmatically.
++ Pre-release hardening pass — bug fixes:
+  - feed_manager: surface local feed read errors instead of silently
+    re-downloading on every run (replaced bare except with targeted
+    OSError/IOError + yellow warning).
+  - vt.py: fixed --subdomains feature (issue #111). main() now takes a
+    named mode argument ("report" default or "subdomains") with a new
+    subdomains() method that calls the VT v3
+    /api/v3/domains/{domain}/subdomains endpoint.
+  - vt.py: fixed domain_report() returning None on missing data
+    (issue #112). Now returns [0, -1] which the caller's existing
+    "VT throttling" branch already handles, eliminating the TypeError.
+  - vt.py: fixed set_apikey() crash on empty lines (line[0] indexing
+    bug, same pattern as #113) and last-line-wins behavior — now reads
+    the first usable line and breaks.
+  - phishing.py: fixed line[0] crash on whitespace-only keyword lines
+    plus broken keyword counter; replaced with strip()+startswith("#").
+  - phishing.py: fixed case-sensitivity bug — phishing_site = site.lower()
+    was being immediately overwritten by site.replace("\\n", ""), so
+    mixed-case phishing entries (e.g. "Login.com") never matched
+    lowercase keywords.
+  - phishing.py update_db: fixed chunked-encoding false-negative
+    (Content-Length=0 was treated as "file not found" even when the
+    body had valid data — same bug already fixed in feed_manager.py).
+  - phishing.py update_db: added 60s HTTP timeout (was unbounded).
+  - feed_manager.py: collapsed two literally-identical if/else branches;
+    premium downloads now actually use the longer 120s timeout the
+    code comment promised.
+  - check_update.py: parse_version() raised ValueError on non-semver
+    server responses (HTML error pages, "2.3.0-rc1", blank bodies),
+    crashing the CLI at the very end of an otherwise successful run.
+    Now wrapped in try/except. Also added a 10s timeout to the version
+    check fetch.
+  - ct.py: added 10s timeout to requests.get() in
+    CRTSH.check_certificate so a hung crt.sh response no longer
+    freezes the CLI when --doppelganger iterates over many domains.
+  - api_client.py: pass allow_redirects=False on the lookalike POST
+    so the session's X-API-Key header cannot leak to a redirect target
+    on a different host (requests strips Authorization on cross-host
+    redirects but NOT custom headers).
 
 v2.2.4 (2026-03-30)
 + Raised minimum Python version from 3.8 to 3.10 (Python 3.8 and 3.9 are EOL).
