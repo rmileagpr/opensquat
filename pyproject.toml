@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opensquat"
-version = "2.2.3"
+version = "2.3.0"
 description = "openSquat - Detection of domain squatting, typosquatting, IDN homograph attacks, and phishing threats"
 readme = "README.md"
 license = "GPL-3.0-only"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 authors = [
     { name = "Andre Tenreiro", email = "andre@opensquat.com" },
 ]
@@ -19,8 +19,6 @@ classifiers = [
     "Intended Audience :: System Administrators",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -30,9 +28,10 @@ dependencies = [
     "confusable_homoglyphs>=2.0.0",
     "homoglyphs>=2.0.0",
     "colorama>=0.4.1",
-    "requests>=2.20.0",
+    "requests>=2.33.0",
     "beautifulsoup4>=4.4.0",
-    "dnspython>=2.0.0",
+    "dnspython>=2.6.1",
+    "urllib3>=2.6.3",
 ]
 
 [project.urls]

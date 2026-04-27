@@ -37,7 +37,7 @@ class CRTSH:
         url = f"{cls.URL}?q={domain}"
 
         try:
-            html_text = requests.get(url).text
+            html_text = requests.get(url, timeout=10).text
         except Exception:
             print(f"Cannot fetch data from {url}")
             return True
