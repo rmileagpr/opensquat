@@ -33,3 +33,4 @@ build/
 *.egg-info/
 .coverage
 CLAUDE.md
+vt_key.txt

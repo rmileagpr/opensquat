@@ -1,2 +1,3 @@
 # VirusTotal API Key: https://developers.virustotal.com/reference/overview
 # if you have an VT API key, insert below otherwise leave it empty.
+VT_API_KEY = "e506ca2f6143699ca145547aaad9d6901fe2ed0ed71679855118201c98a3df69"
